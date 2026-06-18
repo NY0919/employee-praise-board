@@ -1,0 +1,1675 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>글로벌픽 - 사내 칭찬 게시판</title>
+  <!-- Google Fonts (Pretendard 스타일의 가독성 좋은 Outfit & Noto Sans KR) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Noto Sans KR', 'Outfit', 'sans-serif'],
+            display: ['Outfit', 'Noto Sans KR', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#eefdf6',
+              100: '#d1fae5',
+              500: '#00B76F', // 글로벌픽 오리지널 그린 브랜드 컬러
+              600: '#009E5F',
+              700: '#007A4A',
+            }
+          },
+          boxShadow: {
+            'premium': '0 10px 30px -10px rgba(0, 0, 0, 0.04)',
+            'card': '0 4px 20px -2px rgba(0, 0, 0, 0.02)',
+          }
+        }
+      }
+    }
+  </script>
+  
+  <style>
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(0,0,0,0.01);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(0,B7,6F,0.15);
+      border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(0,B7,6F,0.3);
+    }
+    html {
+      scroll-behavior: smooth;
+      -webkit-font-smoothing: antialiased;
+    }
+    /* 스크린샷 스타일 배경 그라디언트 */
+    .login-bg {
+      background: linear-gradient(135deg, #FFF0E5 0%, #FFFDF0 35%, #F0FFF9 70%, #F0F6FF 100%);
+    }
+    .main-bg {
+      background-color: #F8FAFC;
+    }
+  </style>
+</head>
+<body class="main-bg text-slate-800 min-h-screen font-sans flex flex-col">
+
+  <!-- 로컬 테스트용 Mocking 스크립트 제거됨
+       Public GitHub 배포 시 테스트 사용자/테스트 게시글이 노출되지 않도록 삭제했습니다.
+       GitHub Pages에서는 google.script.run이 동작하지 않으므로, 별도 Apps Script API 호출 방식으로 수정이 필요합니다.
+  -->
+
+  <!-- 글로벌 토스트 -->
+  <div id="toast" class="fixed top-5 right-5 z-50 transform translate-x-72 transition-transform duration-300 flex items-center p-4 space-x-3 max-w-sm rounded-2xl bg-white shadow-xl border border-emerald-50 hidden">
+    <div id="toast-icon-wrapper" class="p-2 rounded-xl text-white bg-brand-500">
+      <i data-lucide="check" class="w-5 h-5"></i>
+    </div>
+    <div>
+      <h4 id="toast-title" class="font-bold text-sm text-slate-800">알림</h4>
+      <p id="toast-message" class="text-xs text-slate-500 mt-0.5">상세 메시지</p>
+    </div>
+  </div>
+
+  <!-- 글로벌 헤더 -->
+  <header id="global-header" class="w-full bg-white border-b border-slate-100 sticky top-0 z-40 hidden">
+    <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center space-x-6">
+        <!-- 글로벌픽 로고 -->
+        <div class="flex items-center space-x-2 cursor-pointer" onclick="navigateTo('main')">
+          <span class="text-2xl">🎉</span>
+          <div class="relative pb-1">
+            <span class="font-display font-black text-2xl tracking-tight text-brand-500">글로벌픽</span>
+            <div class="absolute bottom-0 left-0 right-0 h-1 bg-brand-500 rounded-full"></div>
+          </div>
+        </div>
+        
+        <!-- 헤더 사용자 요약 -->
+        <div class="text-sm font-medium text-slate-500 flex items-center space-x-1.5 pl-4 border-l border-slate-200">
+          <span id="header-user-nickname" class="font-black text-[#00B76F] text-base">Forty</span>
+          <span>님</span>
+          <span id="header-user-realname" class="text-slate-400"> (사용자) </span>
+          <span id="header-user-points" class="font-bold text-[#00B76F] text-base ml-1">60P</span>
+        </div>
+      </div>
+      
+      <!-- 우측 네비게이션 버튼 -->
+      <div class="flex items-center space-x-2.5">
+        <button id="btn-admin-dashboard" onclick="navigateTo('admin')" class="flex items-center space-x-1 px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-colors hidden">
+          <i data-lucide="settings" class="w-4 h-4"></i>
+          <span>관리자 대시보드</span>
+        </button>
+        <button onclick="navigateTo('my')" class="flex items-center space-x-1 px-4 py-2 text-xs font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors">
+          <i data-lucide="user" class="w-4 h-4"></i>
+          <span>내 페이지</span>
+        </button>
+        <button onclick="logout()" class="flex items-center space-x-1 px-4 py-2 text-xs font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors">
+          <i data-lucide="log-out" class="w-4 h-4"></i>
+          <span>로그아웃</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- 메인 레이아웃 -->
+  <main id="main-content-wrapper" class="flex-grow max-w-7xl w-full mx-auto px-6 py-8 relative">
+
+    <!-- 1) 로그인 페이지 -->
+    <section id="login-page" class="max-w-md mx-auto my-12 transition-all duration-300">
+      <div class="bg-white rounded-[32px] p-10 shadow-premium border border-slate-50 relative overflow-hidden flex flex-col items-center">
+        
+        <div class="text-center flex flex-col items-center mb-8">
+          <span class="text-4xl mb-4">🎉</span>
+          <div class="relative pb-1 mb-6">
+            <h1 class="font-display font-black text-3xl tracking-tight text-brand-500">글로벌픽</h1>
+            <div class="absolute bottom-0 left-0 right-0 h-1 bg-brand-500 rounded-full"></div>
+          </div>
+          <h2 class="font-bold text-xl text-slate-800 tracking-tight leading-relaxed">따뜻한 칭찬 한마디로<br>시작하는 하루</h2>
+          <p class="text-xs text-slate-400 mt-2 font-medium">가볍게 써도 충분해요 😊</p>
+        </div>
+        
+        <form id="form-login" onsubmit="handleLogin(event)" class="w-full space-y-6">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-2">사번 <span class="text-red-500">*</span></label>
+            <input type="text" id="login-emp-id" required placeholder="8자리 사번을 입력하세요" 
+              class="w-full px-5 py-3.5 bg-slate-100 hover:bg-slate-200/60 focus:bg-white border-0 rounded-2xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm font-medium transition-all">
+          </div>
+          
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-2">이름 <span class="text-red-500">*</span></label>
+            <input type="text" id="login-name" required placeholder="이름을 입력하세요" 
+              class="w-full px-5 py-3.5 bg-slate-100 hover:bg-slate-200/60 focus:bg-white border-0 rounded-2xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm font-medium transition-all">
+          </div>
+          
+          <button type="submit" id="btn-login-submit" class="w-full py-4 px-4 bg-brand-500 hover:bg-brand-600 text-white font-bold rounded-2xl shadow-lg shadow-emerald-500/10 transition-all flex items-center justify-center space-x-1.5 text-base">
+            <span>시작하기</span>
+            <span>✨</span>
+          </button>
+        </form>
+        
+        <div class="mt-8 pt-6 border-t border-slate-100 w-full text-center flex flex-col items-center space-y-2">
+          <span class="text-lg">🔒</span>
+          <p class="text-[11px] text-slate-400 font-semibold leading-relaxed">
+            관리자가 등록한 분만 시작할 수 있어요<br>
+            <span class="text-[10px] font-normal text-slate-300">사번과 이름이 일치해야 입장 가능합니다</span>
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 1-2) 닉네임 설정 모달 (최초 로그인) -->
+    <div id="modal-nickname" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm hidden">
+      <div class="bg-white max-w-sm w-full rounded-[24px] p-8 shadow-2xl border border-slate-50 transform scale-95 transition-all">
+        <div class="text-center mb-6">
+          <span class="text-4xl block mb-4">✨</span>
+          <h3 class="font-bold text-xl text-slate-800 leading-snug">처음 사용할<br>닉네임을 정해주세요</h3>
+          <p class="text-xs text-slate-400 mt-3 leading-relaxed">칭찬은 닉네임으로 배달돼요.<br>동료들에게 보여질 이름이니 신중하게 골라주세요 :)</p>
+        </div>
+        
+        <form id="form-nickname" onsubmit="handleRegisterNickname(event)" class="space-y-4">
+          <div>
+            <label class="block text-xs font-bold text-slate-500 mb-1">닉네임 <span class="text-red-500">*</span></label>
+            <input type="text" id="new-nickname" required placeholder="2~10글자로 입력해주세요" 
+              class="w-full px-4 py-3 bg-slate-100 border-0 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm transition-all">
+          </div>
+          <button type="submit" class="w-full py-3.5 bg-brand-500 hover:bg-brand-600 text-white font-bold rounded-xl transition-all">
+            저장하고 시작하기 🚀
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- 상품 교환소 팝업 모달 -->
+    <div id="modal-exchange" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm hidden">
+      <div class="bg-white max-w-md w-full rounded-[28px] p-8 shadow-2xl border border-slate-50 transform scale-95 transition-all relative">
+        <button onclick="closeExchangeModal()" class="absolute top-6 right-6 text-slate-400 hover:text-slate-600">
+          <i data-lucide="x" class="w-6 h-6"></i>
+        </button>
+        
+        <div class="flex items-center space-x-3 mb-6">
+          <div class="p-2.5 rounded-xl bg-brand-50 text-brand-500">
+            <i data-lucide="gift" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-lg text-slate-800">상품 교환소</h3>
+            <p class="text-xs text-slate-400">보유하신 포인트로 상품을 교환할 수 있습니다.</p>
+          </div>
+        </div>
+        
+        <div class="space-y-4">
+          <!-- 보유 포인트 -->
+          <div class="bg-slate-50 p-4 rounded-2xl flex justify-between items-center">
+            <span class="text-xs font-bold text-slate-500">보유 포인트</span>
+            <span id="exchange-user-points" class="font-black text-brand-500 text-lg">0P</span>
+          </div>
+          
+          <!-- 상품 목록 -->
+          <div class="space-y-3" id="exchange-items-list">
+            <!-- 상품 1: PDC VIP 주차권 (10시간) (300P) -->
+            <div class="flex items-center justify-between p-3.5 bg-white border border-slate-100 rounded-2xl shadow-card">
+              <div>
+                <span class="text-sm font-bold text-slate-800">🅿️ PDC VIP 주차권 (10시간)</span>
+                <p class="text-[11px] text-slate-400 font-semibold mt-0.5">필요 포인트: 300P</p>
+              </div>
+              <button onclick="requestExchange('PDC VIP 주차권 (10시간)', 300)" id="btn-exchange-parking" class="px-4 py-2 bg-[#00B76F] hover:bg-[#009e5f] text-white text-xs font-bold rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                교환하기
+              </button>
+            </div>
+            
+            <!-- 상품 2: 자본주의의 맛(식권대장 +1,000원) (200P) -->
+            <div class="flex items-center justify-between p-3.5 bg-white border border-slate-100 rounded-2xl shadow-card">
+              <div>
+                <span class="text-sm font-bold text-slate-800">💸 자본주의의 맛(식권대장 +1,000원)</span>
+                <p class="text-[11px] text-slate-400 font-semibold mt-0.5">필요 포인트: 200P</p>
+              </div>
+              <button onclick="requestExchange('자본주의의 맛(식권대장 +1,000원)', 200)" id="btn-exchange-food" class="px-4 py-2 bg-[#00B76F] hover:bg-[#009e5f] text-white text-xs font-bold rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                교환하기
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 칭찬하기 팝업 모달 -->
+    <div id="modal-compliment" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm hidden">
+      <div class="bg-white max-w-lg w-full rounded-[28px] p-8 shadow-2xl border border-slate-50 transform scale-95 transition-all relative">
+        <button onclick="closeComplimentModal()" class="absolute top-6 right-6 text-slate-400 hover:text-slate-600">
+          <i data-lucide="x" class="w-6 h-6"></i>
+        </button>
+        
+        <div class="flex items-center space-x-3 mb-6">
+          <div class="p-2.5 rounded-xl bg-brand-50 text-brand-500">
+            <i data-lucide="heart" class="w-6 h-6 fill-current"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-lg text-slate-800">동료에게 칭찬 보내기</h3>
+            <p class="text-xs text-slate-400">포인트 적립과 함께 따뜻한 마음이 배달됩니다.</p>
+          </div>
+        </div>
+        
+        <form id="form-compliment" onsubmit="handleSendCompliment(event)" class="space-y-5">
+          <!-- 수신자 선택 -->
+          <div class="relative">
+            <label class="block text-xs font-bold text-slate-700 mb-2">받는 동료</label>
+            <div class="relative">
+              <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400">
+                <i data-lucide="search" class="w-4 h-4"></i>
+              </span>
+              <input type="text" id="receiver-search-input" placeholder="이름 또는 부서명을 입력해 동료를 찾아주세요." autocomplete="off"
+                class="w-full pl-10 pr-4 py-3 bg-slate-100 border-0 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm font-medium transition-all"
+                oninput="filterReceivers()" onfocus="showReceiverDropdown()">
+            </div>
+            
+            <div id="receiver-dropdown" class="absolute left-0 right-0 mt-2 bg-white rounded-xl shadow-xl border border-slate-100 max-h-48 overflow-y-auto z-50 hidden">
+              <ul id="receiver-dropdown-list" class="p-2 divide-y divide-slate-50"></ul>
+            </div>
+            <input type="hidden" id="selected-receiver" required>
+          </div>
+
+          <!-- 빠른 문구 -->
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-2">빠른 칭찬 선택</label>
+            <div class="flex flex-wrap gap-1.5">
+              <button type="button" onclick="insertQuickPhrase('항상 감사합니다! 👍')" class="px-3 py-1.5 bg-slate-100 hover:bg-brand-50 hover:text-brand-600 text-[11px] text-slate-600 rounded-full transition-all font-semibold">항상 감사합니다! 👍</button>
+              <button type="button" onclick="insertQuickPhrase('최고의 파트너입니다! 🌟')" class="px-3 py-1.5 bg-slate-100 hover:bg-brand-50 hover:text-brand-600 text-[11px] text-slate-600 rounded-full transition-all font-semibold">최고의 파트너입니다! 🌟</button>
+              <button type="button" onclick="insertQuickPhrase('덕분에 큰 도움이 되었습니다! 🙏')" class="px-3 py-1.5 bg-slate-100 hover:bg-brand-50 hover:text-brand-600 text-[11px] text-slate-600 rounded-full transition-all font-semibold">덕분에 큰 도움이 되었습니다! 🙏</button>
+            </div>
+          </div>
+          
+          <!-- 내용 -->
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-2">칭찬 내용</label>
+            <textarea id="compliment-content" rows="4" required placeholder="동료가 힘이 나도록 구체적인 칭찬을 작성해 주세요."
+              class="w-full p-4 bg-slate-100 border-0 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm font-medium transition-all resize-none"></textarea>
+          </div>
+          
+          <button type="submit" id="btn-submit-compliment" class="w-full py-3 bg-brand-500 hover:bg-brand-600 text-white font-bold rounded-xl shadow-lg transition-all flex items-center justify-center space-x-1.5">
+            <i data-lucide="send" class="w-4 h-4"></i>
+            <span>보내기</span>
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- 받은 칭찬 내역 팝업 모달 -->
+    <div id="modal-received-details" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm hidden">
+      <div class="bg-white max-w-lg w-full rounded-[28px] p-8 shadow-2xl border border-slate-50 transform scale-95 transition-all relative">
+        <button onclick="closeReceivedDetailsModal()" class="absolute top-6 right-6 text-slate-400 hover:text-slate-600">
+          <i data-lucide="x" class="w-6 h-6"></i>
+        </button>
+        
+        <div class="flex items-center space-x-3 mb-6">
+          <div class="p-2.5 rounded-xl bg-brand-50 text-brand-500">
+            <i data-lucide="award" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-lg text-slate-800"><span id="detail-modal-user-name" class="text-brand-500">사용자</span> 님의 칭찬 내역</h3>
+            <p class="text-xs text-slate-400">이번 달 동료들에게 받은 따뜻한 칭찬 카드들입니다 💌</p>
+          </div>
+        </div>
+        
+        <div id="detail-modal-list-container" class="space-y-4 max-h-[350px] overflow-y-auto pr-1">
+          <!-- 칭찬 리스트 -->
+        </div>
+      </div>
+    </div>
+
+    <!-- 2) 메인 페이지 -->
+    <section id="main-page" class="hidden space-y-8 transition-all duration-300">
+      
+      <!-- 칭찬하기 띠 카드 배너 -->
+      <div onclick="openComplimentModal()" class="bg-white rounded-3xl p-6 shadow-premium hover:shadow-xl transition-all duration-300 border-l-[6px] border-brand-500 flex items-center justify-between cursor-pointer group">
+        <div class="flex items-center space-x-4">
+          <div class="w-12 h-12 rounded-2xl bg-brand-500 text-white flex items-center justify-center shadow-md shadow-emerald-500/10 group-hover:scale-105 transition-transform">
+            <i data-lucide="heart" class="w-6 h-6 fill-current"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-slate-800 text-lg">칭찬하기</h3>
+            <p class="text-xs text-slate-400 font-medium mt-0.5">가볍게 써도 충분해요 😊</p>
+          </div>
+        </div>
+        
+        <!-- 우측 끝 하트 상자 이모지 -->
+        <span class="text-3xl group-hover:scale-110 transition-transform">💝</span>
+      </div>
+
+      <!-- 역대 누적 포인트 TOP 3 영역 -->
+      <div class="bg-white rounded-3xl p-8 shadow-premium border border-slate-100">
+        <div class="flex items-center space-x-2 mb-2">
+          <span class="text-xl">🏆</span>
+          <h3 class="font-display font-extrabold text-lg text-slate-800">역대 누적 포인트 TOP 3</h3>
+        </div>
+        <p class="text-xs text-slate-400 font-medium mb-6">지금까지 가장 많은 포인트를 받으신 분들이에요 ✨</p>
+        
+        <!-- 탑 3 카드 리스트 -->
+        <div id="cumulative-top-three-grid" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <!-- 카드들이 들어옵니다. -->
+        </div>
+      </div>
+      
+      <!-- 이번 달 탑 10 랭크 영역 -->
+      <div class="bg-white rounded-3xl p-8 shadow-premium border border-slate-100">
+        <div class="flex items-center space-x-2 mb-2">
+          <span class="text-xl">🏆</span>
+          <h3 class="font-display font-extrabold text-lg text-slate-800">이번 달 TOP 10 명예의 전당</h3>
+        </div>
+        <p class="text-xs text-slate-400 font-medium mb-6">이번 달 칭찬을 가장 많이 받은 분들이에요 👏</p>
+        
+        <!-- 탑 10 카드 리스트 (2열 그리드로 구성) -->
+        <div id="top-ten-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- 카드들이 들어옵니다. -->
+        </div>
+      </div>
+      
+      <!-- 하단 2분할 레이아웃 -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <!-- 좌측: 보낸사람 랭킹 -->
+        <div class="bg-white rounded-3xl p-8 shadow-premium border border-slate-100">
+          <div class="flex items-center space-x-2 mb-2">
+            <span class="text-xl">⭐️</span>
+            <h3 class="font-bold text-base text-slate-800">이번 달 가장 많은 칭찬을 보낸 사람 TOP 10</h3>
+          </div>
+          <p class="text-xs text-slate-400 font-medium mb-6">이번 달 동료에게 칭찬을 가장 많이 보낸 분들이에요</p>
+          
+          <div id="rank-sent-container" class="space-y-2.5">
+            <!-- 랭킹 리스트 -->
+          </div>
+        </div>
+        
+        <!-- 우측: 최근 칭찬 피드 -->
+        <div class="bg-white rounded-3xl p-8 shadow-premium border border-slate-100">
+          <div class="flex items-center space-x-2 mb-2">
+            <span class="text-xl">🚀</span>
+            <h3 class="font-bold text-base text-slate-800">최근 칭찬 피드</h3>
+          </div>
+          <p class="text-xs text-slate-400 font-medium mb-6">최근 주고받은 칭찬이에요</p>
+          
+          <div id="feed-list" class="space-y-4 max-h-[400px] overflow-y-auto pr-1">
+            <!-- 피드 아이템 -->
+          </div>
+        </div>
+      </div>
+      
+    </section>
+
+    <!-- 3) 내 페이지 (My Page) -->
+    <section id="my-page" class="hidden space-y-8 transition-all duration-300">
+      
+      <!-- 상단 타이틀 -->
+      <div class="flex items-center space-x-2 border-b border-slate-200 pb-3">
+        <h2 class="font-display font-black text-2xl text-brand-500">내 페이지</h2>
+      </div>
+      
+      <!-- 4등분 사용자 정보 카드 -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- 이름 -->
+        <div class="bg-slate-50 border border-slate-100 rounded-2xl p-5 shadow-card">
+          <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">이름</p>
+          <p id="my-name" class="font-bold text-lg text-slate-800">사용자</p>
+        </div>
+        <!-- 사번 -->
+        <div class="bg-white border border-slate-100 rounded-2xl p-5 shadow-card">
+          <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">사번</p>
+          <p id="my-emp-id" class="font-mono font-bold text-lg text-slate-800">00000000</p>
+        </div>
+        <!-- 닉네임 -->
+        <div class="bg-white border border-slate-100 rounded-2xl p-5 shadow-card">
+          <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">닉네임</p>
+          <p id="my-nickname" class="font-bold text-lg text-brand-500">Forty</p>
+        </div>
+        <!-- 누적 포인트 -->
+        <div onclick="openExchangeModal()" class="bg-white border border-slate-100 rounded-2xl p-5 shadow-card cursor-pointer hover:bg-slate-50 transition-colors">
+          <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">누적 포인트 🎁 (클릭시 교환)</p>
+          <p id="my-points" class="font-bold text-lg text-brand-500">60P</p>
+        </div>
+      </div>
+      
+      <!-- 마이페이지 하단 관리자 전용 영역 (대기) -->
+      <div id="my-admin-section" class="bg-indigo-50 border border-indigo-100 rounded-2xl p-6 shadow-card hidden">
+        <h3 class="font-bold text-indigo-900 text-sm flex items-center space-x-1.5">
+          <i data-lucide="shield-check" class="w-5 h-5 text-indigo-600"></i>
+          <span>피플팀 관리자 기능</span>
+        </h3>
+        <p class="text-xs text-indigo-600 mt-1">관리자 전용 교환 내역 추적 대시보드로 이동합니다.</p>
+        <button onclick="navigateTo('admin')" class="mt-4 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-all shadow-md shadow-indigo-600/10">
+          관리자 대시보드 열기
+        </button>
+      </div>
+      
+      <!-- 통계 2분할 카드 -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- 이번 달 받은 칭찬 -->
+        <div class="bg-white border border-slate-100 rounded-2xl p-6 shadow-card flex flex-col justify-between min-h-[160px]">
+          <div class="flex items-center space-x-1.5 text-xs text-slate-400 font-bold">
+            <i data-lucide="gift" class="w-4 h-4 text-brand-500"></i>
+            <span>지금까지 받은 칭찬</span>
+          </div>
+          <div class="flex-grow flex items-center justify-center py-2">
+            <h4 id="my-received-count-month" class="font-display font-extrabold text-3xl text-brand-500 text-center">0건</h4>
+          </div>
+        </div>
+        
+        <!-- 가장 많이 칭찬해준 사람 -->
+        <div class="bg-white border border-slate-100 rounded-2xl p-6 shadow-card flex flex-col justify-between min-h-[160px]">
+          <div class="flex items-center space-x-1.5 text-xs text-slate-400 font-bold">
+            <i data-lucide="trending-up" class="w-4 h-4 text-brand-500"></i>
+            <span>가장 많이 칭찬해준 사람</span>
+          </div>
+          <p class="text-[11px] text-slate-400 mt-1">나에게 칭찬을 제일 많이 보낸 분이에요 ✨</p>
+          <div class="flex-grow flex flex-col items-center justify-center py-2">
+            <h4 id="my-best-sender-nickname" class="font-display font-extrabold text-2xl text-brand-500 text-center">아직 칭찬이 없어요</h4>
+            <p id="my-best-sender-count" class="text-xs text-slate-500 mt-1.5 font-medium hidden">총 0번 칭찬해주셨어요 🙏</p>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 받은/보낸 칭찬 탭 & 필터 -->
+      <div class="bg-white border border-slate-100 rounded-2xl p-6 shadow-premium space-y-6">
+        <!-- 탭 바 -->
+        <div class="flex p-1 bg-slate-100/60 rounded-xl max-w-md">
+          <button onclick="toggleMyComplimentTab('received')" id="tab-my-received" class="flex-1 text-center py-2 text-xs font-bold rounded-lg bg-white text-slate-800 shadow-sm transition-all">
+            받은 칭찬
+          </button>
+          <button onclick="toggleMyComplimentTab('sent')" id="tab-my-sent" class="flex-1 text-center py-2 text-xs font-semibold rounded-lg text-slate-500 hover:text-slate-700 transition-all">
+            보낸 칭찬
+          </button>
+          <button onclick="toggleMyComplimentTab('exchange')" id="tab-my-exchange" class="flex-1 text-center py-2 text-xs font-semibold rounded-lg text-slate-500 hover:text-slate-700 transition-all">
+            상품교환내역
+          </button>
+        </div>
+        
+        <!-- 필터 버튼들 -->
+        <div class="space-y-4">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+              <button id="btn-filter-all" onclick="filterMyList('all')" class="px-3.5 py-1.5 bg-brand-500 text-white text-xs font-bold rounded-lg transition-colors">전체</button>
+              <button id="btn-filter-month" onclick="filterMyList('month')" class="px-3.5 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-600 rounded-lg transition-colors">이번 달</button>
+              <button id="btn-filter-date" onclick="filterMyList('date')" class="px-3.5 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-600 rounded-lg transition-colors">날짜 선택</button>
+            </div>
+            <span id="my-query-period" class="text-xs text-slate-400 font-medium">조회 기간: 전체 기간</span>
+          </div>
+          
+          <!-- 달력 기간 범위 선택기 -->
+          <div id="date-range-picker-container" class="flex items-center space-x-2.5 bg-slate-50/50 p-3 rounded-2xl border border-slate-100 hidden">
+            <div class="relative flex-1 max-w-[180px]">
+              <input type="date" id="my-filter-start-date" onchange="handleDateRangeChange()" 
+                class="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500">
+            </div>
+            <span class="text-slate-400 text-xs">~</span>
+            <div class="relative flex-1 max-w-[180px]">
+              <input type="date" id="my-filter-end-date" onchange="handleDateRangeChange()" 
+                class="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500">
+            </div>
+          </div>
+        </div>
+        
+        <!-- 동적 리스트 렌더 영역 -->
+        <div id="my-list-container" class="space-y-4 min-h-[120px] flex flex-col justify-center">
+          <p class="text-center text-xs text-slate-400 font-medium">받은 칭찬을 불러오는 중...</p>
+        </div>
+      </div>
+      
+    </section>
+
+    <!-- 4) 관리자 대시보드 페이지 -->
+    <section id="admin-page" class="hidden space-y-8 transition-all duration-300">
+      <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+        <h2 class="font-display font-black text-2xl text-indigo-600">관리자 대시보드</h2>
+        <button onclick="navigateTo('main')" class="flex items-center space-x-1 px-4 py-2 text-xs font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors">
+          <i data-lucide="arrow-left" class="w-4 h-4"></i>
+          <span>메인으로</span>
+        </button>
+      </div>
+      
+      <!-- 교환 내역 조회 테이블 -->
+      <div class="bg-white border border-slate-100 rounded-3xl p-8 shadow-premium space-y-6">
+        <div>
+          <h3 class="font-bold text-base text-slate-800">전체 상품 교환 신청 내역</h3>
+          <p class="text-xs text-slate-400 font-medium">직원들이 교환을 신청한 내역 목록입니다. 상품 사용 여부 상태(Status)를 직접 업데이트할 수 있습니다.</p>
+        </div>
+        
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr class="bg-slate-50 border-b border-slate-100 text-slate-500 font-bold">
+                <th class="p-3">교환 일시</th>
+                <th class="p-3">신청자 정보</th>
+                <th class="p-3">상품명</th>
+                <th class="p-3">차감 포인트</th>
+                <th class="p-3">잔여 포인트</th>
+                <th class="p-3">사용 여부 상태</th>
+              </tr>
+            </thead>
+            <tbody id="admin-exchange-tbody" class="divide-y divide-slate-100">
+              <!-- 리스트 동적 렌더 -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- 푸터 -->
+  <footer class="w-full py-6 mt-12 text-center text-xs text-slate-400 border-t border-slate-100 bg-white">
+    <p>© 2026 글로벌픽. 사내 긍정 문화 정착을 위한 임직원 칭찬 게시판.</p>
+  </footer>
+
+  <script>
+    // 상태값 관리
+    let currentUser = null;
+    let cachedData = null;
+    let currentMyTab = 'received'; // received or sent
+    let currentPeriodFilter = 'all'; // all, month, date
+    
+    // 널리 칭송해요 전역 상태 관리
+    let praiseCounts = {}; // { complimentId: { count: 0, myPraised: false } }
+    let praisePendingQueue = []; // [{ complimentId, action: 'add'|'remove' }]
+    let praiseDebounceTimer = null;
+    
+    window.onload = function() {
+      // 칭송인 목록 모달 동적 바인딩을 위한 마크업 추가
+      createPraisersModalMarkup();
+      lucide.createIcons();
+      
+      const storedUser = localStorage.getItem('currentUser');
+      if (storedUser) {
+        currentUser = JSON.parse(storedUser);
+        setupHeader();
+        navigateTo('main');
+        refreshData();
+      } else {
+        navigateTo('login');
+      }
+    };
+    
+    // 칭송인 목록 팝업 모달 마크업 동적 추가
+    function createPraisersModalMarkup() {
+      if (document.getElementById('modal-praisers-detail')) return;
+      const modalHtml = `
+        <div id="modal-praisers-detail" class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm hidden">
+          <div class="bg-white max-w-sm w-full rounded-[24px] p-6 shadow-2xl border border-slate-50 transform scale-95 transition-all relative">
+            <button onclick="closePraisersModal()" class="absolute top-5 right-5 text-slate-400 hover:text-slate-600">
+              <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+            <div class="flex items-center space-x-3 mb-4">
+              <div class="p-2 rounded-xl bg-emerald-50 text-brand-500">
+                <i data-lucide="heart" class="w-5 h-5 fill-current"></i>
+              </div>
+              <div>
+                <h3 class="font-bold text-base text-slate-800">널리 칭송한 동료들</h3>
+                <p class="text-[11px] text-slate-400">이 칭찬글에 공감한 분들의 목록입니다.</p>
+              </div>
+            </div>
+            <div id="praisers-list-container" class="space-y-2 max-h-48 overflow-y-auto pr-1">
+              <!-- 지연 로딩 데이터 위치 -->
+              <div class="flex items-center justify-center py-6">
+                <span class="inline-block animate-spin rounded-full h-5 w-5 border-2 border-brand-500 border-t-transparent"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+      const div = document.createElement('div');
+      div.innerHTML = modalHtml;
+      document.body.appendChild(div.firstElementChild);
+    }
+    
+    // 칭송인 목록 팝업 열기 (Lazy Loading)
+    function openPraisersModal(event, complimentId) {
+      if (event) event.stopPropagation(); // 카드 클릭 이벤트와 겹치지 않게 방지
+      const modal = document.getElementById('modal-praisers-detail');
+      const container = document.getElementById('praisers-list-container');
+      
+      container.innerHTML = `
+        <div class="flex items-center justify-center py-6">
+          <span class="inline-block animate-spin rounded-full h-5 w-5 border-2 border-brand-500 border-t-transparent"></span>
+        </div>
+      `;
+      modal.classList.remove('hidden');
+      lucide.createIcons();
+      
+      google.script.run
+        .withSuccessHandler(function(praisers) {
+          container.innerHTML = '';
+          if (!praisers || praisers.length === 0) {
+            container.innerHTML = `<p class="text-xs text-center text-slate-400 py-6">가장 먼저 널리 칭송해 보세요! 🤍</p>`;
+            return;
+          }
+          praisers.forEach(p => {
+            const div = document.createElement('div');
+            div.className = "flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-100/50";
+            div.innerHTML = `
+              <span class="text-xs font-bold text-slate-800">${p.name}</span>
+              <span class="text-[10px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md font-semibold">${p.department}</span>
+            `;
+            container.appendChild(div);
+          });
+        })
+        .withFailureHandler(function(error) {
+          container.innerHTML = `<p class="text-xs text-center text-red-500 py-6">불러오지 못했습니다: ${error.message}</p>`;
+        })
+        .getPraisers(complimentId);
+    }
+    
+    function closePraisersModal() {
+      document.getElementById('modal-praisers-detail').classList.add('hidden');
+    }
+    
+    // 널리 칭송해요 버튼 템플릿 생성기
+    function getPraiseButtonHtml(complimentId) {
+      const info = praiseCounts[complimentId] || { count: 0, myPraised: false };
+      const activeClass = info.myPraised ? "text-brand-500 hover:text-brand-600 bg-brand-50" : "text-slate-400 hover:text-slate-500 bg-slate-50";
+      const icon = info.myPraised ? "heart" : "heart";
+      const iconFill = info.myPraised ? "fill-current" : "";
+      
+      return `
+        <div class="flex items-center justify-end pt-1">
+          <div class="flex items-center space-x-1">
+            <button onclick="togglePraise(event, '${complimentId}')" class="flex items-center space-x-1 px-2.5 py-1 rounded-full text-[11px] font-bold transition-all transform active:scale-90 ${activeClass}">
+              <i data-lucide="${icon}" class="w-3.5 h-3.5 ${iconFill}"></i>
+              <span class="praise-btn-label-${complimentId}">널리 칭송해요</span>
+            </button>
+            <span onclick="openPraisersModal(event, '${complimentId}')" class="text-xs font-bold text-slate-500 cursor-pointer hover:underline bg-slate-100 px-2 py-1 rounded-full praise-count-${complimentId}">
+              ${info.count}
+            </span>
+          </div>
+        </div>
+      `;
+    }
+    
+    // 널리 칭송해요 토글 (낙관적 UI 및 디바운스 배치 큐잉)
+    function togglePraise(event, complimentId) {
+      if (event) event.stopPropagation();
+      if (!currentUser) return;
+      
+      // 1. 낙관적 UI 상태 변환
+      if (!praiseCounts[complimentId]) {
+        praiseCounts[complimentId] = { count: 0, myPraised: false };
+      }
+      
+      const info = praiseCounts[complimentId];
+      const previousState = { ...info }; // 실패 시 복원용 백업
+      
+      if (info.myPraised) {
+        info.count = Math.max(0, info.count - 1);
+        info.myPraised = false;
+      } else {
+        info.count++;
+        info.myPraised = true;
+      }
+      
+      // 2. 화면 즉시 업데이트 (낙관적 UI)
+      updatePraiseButtonUI(complimentId);
+      
+      // 3. 배치 동기화 큐 적재 (동일 글 변경 시 큐 통폐합 최적화)
+      const action = info.myPraised ? 'add' : 'remove';
+      const existingIdx = praisePendingQueue.findIndex(q => q.complimentId === complimentId);
+      if (existingIdx !== -1) {
+        praisePendingQueue.splice(existingIdx, 1);
+      }
+      praisePendingQueue.push({ complimentId, action });
+      
+      // 4. 3초 디바운싱 처리
+      if (praiseDebounceTimer) {
+        clearTimeout(praiseDebounceTimer);
+      }
+      praiseDebounceTimer = setTimeout(() => {
+        sendPraiseBatchToServer(previousState, complimentId);
+      }, 3000);
+    }
+    
+    // 널리 칭송 버튼 UI 갱신 (전체 화면 공통 클래스 및 수치 바인딩)
+    function updatePraiseButtonUI(complimentId) {
+      const info = praiseCounts[complimentId] || { count: 0, myPraised: false };
+      
+      // 동일한 complimentId를 갖는 모든 엘리먼트 동기화 (클래스 쿼리 사용)
+      const countEls = document.querySelectorAll(`.praise-count-${complimentId}`);
+      countEls.forEach(el => {
+        el.innerText = info.count;
+      });
+      
+      const btnLabels = document.querySelectorAll(`.praise-btn-label-${complimentId}`);
+      btnLabels.forEach(el => {
+        const btn = el.parentElement;
+        if (info.myPraised) {
+          btn.className = "flex items-center space-x-1 px-2.5 py-1 rounded-full text-[11px] font-bold transition-all transform active:scale-90 text-brand-500 hover:text-brand-600 bg-brand-50";
+          btn.innerHTML = `<i data-lucide="heart" class="w-3.5 h-3.5 fill-current"></i><span class="praise-btn-label-${complimentId}">널리 칭송해요</span>`;
+        } else {
+          btn.className = "flex items-center space-x-1 px-2.5 py-1 rounded-full text-[11px] font-bold transition-all transform active:scale-90 text-slate-400 hover:text-slate-500 bg-slate-50";
+          btn.innerHTML = `<i data-lucide="heart" class="w-3.5 h-3.5"></i><span class="praise-btn-label-${complimentId}">널리 칭송해요</span>`;
+        }
+      });
+      lucide.createIcons();
+    }
+    
+    // 배치 데이터 서버 전송
+    function sendPraiseBatchToServer(previousState, lastCompId) {
+      if (praisePendingQueue.length === 0) return;
+      const currentQueue = [...praisePendingQueue];
+      praisePendingQueue = []; // 큐 비우기
+      
+      google.script.run
+        .withSuccessHandler(function() {
+          console.log("Praise batch synchronized successfully.");
+        })
+        .withFailureHandler(function(error) {
+          // 실패 시 롤백 및 토스트 공지
+          console.error("Failed to sync praises:", error);
+          showToast("연동 실패", "칭송 내역을 저장하지 못했습니다. 다시 시도해주세요.", false);
+          
+          currentQueue.forEach(q => {
+            praiseCounts[q.complimentId] = previousState;
+            updatePraiseButtonUI(q.complimentId);
+          });
+        })
+        .syncPraiseBatch(currentUser.employeeId, currentQueue);
+    }
+    
+    // 글로벌 팝업 알림
+    function showToast(title, message, isSuccess = true) {
+      const toast = document.getElementById('toast');
+      const titleEl = document.getElementById('toast-title');
+      const msgEl = document.getElementById('toast-message');
+      const iconWrapper = document.getElementById('toast-icon-wrapper');
+      
+      titleEl.innerText = title;
+      msgEl.innerText = message;
+      
+      if (isSuccess) {
+        iconWrapper.className = "p-2 rounded-xl text-white bg-brand-500";
+        iconWrapper.innerHTML = `<i data-lucide="check" class="w-5 h-5"></i>`;
+      } else {
+        iconWrapper.className = "p-2 rounded-xl text-white bg-red-500";
+        iconWrapper.innerHTML = `<i data-lucide="alert-triangle" class="w-5 h-5"></i>`;
+      }
+      lucide.createIcons();
+      
+      toast.classList.remove('hidden');
+      setTimeout(() => {
+        toast.classList.remove('translate-x-72');
+      }, 50);
+      
+      setTimeout(() => {
+        toast.classList.add('translate-x-72');
+        setTimeout(() => {
+          toast.classList.add('hidden');
+        }, 300);
+      }, 3000);
+    }
+    
+    // 페이지 라우팅
+    function navigateTo(pageId) {
+      const loginPage = document.getElementById('login-page');
+      const mainPage = document.getElementById('main-page');
+      const myPage = document.getElementById('my-page');
+      const adminPage = document.getElementById('admin-page');
+      const header = document.getElementById('global-header');
+      
+      loginPage.classList.add('hidden');
+      mainPage.classList.add('hidden');
+      myPage.classList.add('hidden');
+      adminPage.classList.add('hidden');
+      header.classList.add('hidden');
+      
+      document.body.className = "text-slate-800 min-h-screen font-sans flex flex-col " + (pageId === 'login' ? 'login-bg' : 'main-bg');
+ 
+      if (pageId === 'login') {
+        loginPage.classList.remove('hidden');
+      } else {
+        header.classList.remove('hidden');
+        if (pageId === 'main') {
+          mainPage.classList.remove('hidden');
+        } else if (pageId === 'my') {
+          myPage.classList.remove('hidden');
+          renderMyPage();
+        } else if (pageId === 'admin') {
+          adminPage.classList.remove('hidden');
+          renderAdminDashboard();
+        }
+      }
+      window.scrollTo(0, 0);
+    }
+    
+    // 헤더 상태 세팅
+    function setupHeader() {
+      if (!currentUser) return;
+      document.getElementById('header-user-nickname').innerText = currentUser.nickname || currentUser.name;
+      document.getElementById('header-user-realname').innerText = ` (${currentUser.name}) `;
+      document.getElementById('header-user-points').innerText = `${currentUser.points}P`;
+      
+      // 관리자 여부에 따라 대시보드 버튼/영역 노출
+      const btnAdmin = document.getElementById('btn-admin-dashboard');
+      const myAdminSec = document.getElementById('my-admin-section');
+      if (currentUser.isAdmin) {
+        if (btnAdmin) btnAdmin.classList.remove('hidden');
+        if (myAdminSec) myAdminSec.classList.remove('hidden');
+      } else {
+        if (btnAdmin) btnAdmin.classList.add('hidden');
+        if (myAdminSec) myAdminSec.classList.add('hidden');
+      }
+    }
+    
+    // 로그아웃
+    function logout() {
+      // 로그아웃 시 펜딩 큐 동기화 강제 시도
+      if (praisePendingQueue.length > 0) {
+        sendPraiseBatchToServer(null, null);
+      }
+      localStorage.removeItem('currentUser');
+      currentUser = null;
+      cachedData = null;
+      navigateTo('login');
+      showToast("로그아웃", "정상적으로 로그아웃되었습니다.", true);
+    }
+ 
+    // 1) 로그인
+    function handleLogin(event) {
+      event.preventDefault();
+      const empId = document.getElementById('login-emp-id').value.trim();
+      const name = document.getElementById('login-name').value.trim();
+      
+      const btn = document.getElementById('btn-login-submit');
+      const originalText = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = `<span class="inline-block animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></span> 확인 중...`;
+      
+      google.script.run
+        .withSuccessHandler(function(userData) {
+          btn.disabled = false;
+          btn.innerHTML = originalText;
+          
+          currentUser = userData;
+          localStorage.setItem('currentUser', JSON.stringify(userData));
+          setupHeader();
+          
+          if (!userData.nickname) {
+            document.getElementById('modal-nickname').classList.remove('hidden');
+          } else {
+            navigateTo('main');
+            refreshData();
+            showToast("환영합니다!", `${userData.name}님, 오늘도 힘찬 하루 되세요!`, true);
+          }
+        })
+        .withFailureHandler(function(error) {
+          btn.disabled = false;
+          btn.innerHTML = originalText;
+          showToast("로그인 실패", error.message, false);
+        })
+        .login(empId, name);
+    }
+    
+    // 닉네임 설정
+    function handleRegisterNickname(event) {
+      event.preventDefault();
+      const nickname = document.getElementById('new-nickname').value.trim();
+      if (!nickname) return;
+      
+      google.script.run
+        .withSuccessHandler(function(res) {
+          document.getElementById('modal-nickname').classList.add('hidden');
+          
+          currentUser.nickname = nickname;
+          localStorage.setItem('currentUser', JSON.stringify(currentUser));
+          setupHeader();
+          
+          navigateTo('main');
+          refreshData();
+          showToast("닉네임 설정 완료", `글로벌픽에서 '${nickname}'(으)로 시작합니다.`, true);
+        })
+        .withFailureHandler(function(error) {
+          showToast("오류", error.message, false);
+        })
+        .registerNickname(currentUser.employeeId, nickname);
+    }
+    
+    // 데이터 새로고침
+    function refreshData() {
+      if (!currentUser) return;
+      
+      google.script.run
+        .withSuccessHandler(function(data) {
+          cachedData = data;
+          praiseCounts = data.praiseCounts || {}; // 널리 칭송해요 상태 동기화
+          
+          currentUser = data.currentUser;
+          localStorage.setItem('currentUser', JSON.stringify(currentUser));
+          setupHeader();
+          
+          renderReceiverDropdown(data.receiverList);
+          renderFeed(data.feed);
+          renderTopTen(data.rankings.received);
+          renderCumulativeTopThree(data.rankings.cumulativeTopThree);
+          renderSentRankings(data.rankings.sent);
+          
+          if (!document.getElementById('my-page').classList.contains('hidden')) {
+            renderMyPage();
+          }
+        })
+        .withFailureHandler(function(error) {
+          showToast("오류", error.message, false);
+        })
+        .getDashboardData(currentUser.employeeId);
+    }
+    
+    // 모달 제어
+    function openComplimentModal() {
+      document.getElementById('modal-compliment').classList.remove('hidden');
+    }
+    function closeComplimentModal() {
+      document.getElementById('modal-compliment').classList.add('hidden');
+      document.getElementById('receiver-search-input').value = '';
+      document.getElementById('selected-receiver').value = '';
+      document.getElementById('compliment-content').value = '';
+    }
+    
+    // 칭찬 타겟 드롭다운 렌더
+    function renderReceiverDropdown(list) {
+      const dropdownList = document.getElementById('receiver-dropdown-list');
+      dropdownList.innerHTML = '';
+      
+      if (list.length === 0) {
+        dropdownList.innerHTML = `<li class="p-3 text-center text-xs text-slate-400">검색결과가 없습니다.</li>`;
+        return;
+      }
+      
+      list.forEach(user => {
+        const li = document.createElement('li');
+        li.className = "flex items-center justify-between px-4 py-2.5 hover:bg-brand-50 rounded-lg cursor-pointer text-sm font-medium transition-colors";
+        li.innerHTML = `
+          <div>
+            <span class="font-bold text-slate-800">${user.name}</span>
+            <span class="text-xs text-slate-400 ml-1.5">${user.department}</span>
+          </div>
+        `;
+        li.onclick = function() {
+          selectReceiver(user.displayName);
+        };
+        dropdownList.appendChild(li);
+      });
+    }
+    
+    function filterReceivers() {
+      if (!cachedData || !cachedData.receiverList) return;
+      const query = document.getElementById('receiver-search-input').value.toLowerCase().trim();
+      const filtered = cachedData.receiverList.filter(user => 
+        user.name.toLowerCase().includes(query) || 
+        user.department.toLowerCase().includes(query)
+      );
+      renderReceiverDropdown(filtered);
+    }
+    
+    function showReceiverDropdown() {
+      document.getElementById('receiver-dropdown').classList.remove('hidden');
+    }
+    
+    // 리시버 선택
+    function selectReceiver(displayName) {
+      document.getElementById('receiver-search-input').value = displayName;
+      document.getElementById('selected-receiver').value = displayName;
+      document.getElementById('receiver-dropdown').classList.add('hidden');
+    }
+    
+    document.addEventListener('click', function(e) {
+      const searchBox = document.getElementById('receiver-search-input');
+      const dropdown = document.getElementById('receiver-dropdown');
+      if (searchBox && dropdown && !searchBox.contains(e.target) && !dropdown.contains(e.target)) {
+        dropdown.classList.add('hidden');
+      }
+    });
+    
+    function insertQuickPhrase(phrase) {
+      const textarea = document.getElementById('compliment-content');
+      let currentVal = textarea.value.trim();
+      textarea.value = currentVal ? currentVal + " " + phrase : phrase;
+      textarea.focus();
+    }
+    
+    // 칭찬 발송
+    function handleSendCompliment(event) {
+      event.preventDefault();
+      
+      const receiver = document.getElementById('selected-receiver').value;
+      const content = document.getElementById('compliment-content').value.trim();
+      const searchInputVal = document.getElementById('receiver-search-input').value;
+      
+      if (!receiver || receiver !== searchInputVal) {
+        showToast("오류", "칭찬받을 동료를 목록에서 선택해 주세요.", false);
+        return;
+      }
+      
+      const btn = document.getElementById('btn-submit-compliment');
+      const origText = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = `<span class="inline-block animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></span> 보내는 중...`;
+      
+      google.script.run
+        .withSuccessHandler(function() {
+          btn.disabled = false;
+          btn.innerHTML = origText;
+          closeComplimentModal();
+          showToast("성공", "칭찬 카드가 성공적으로 발송되었습니다!", true);
+          refreshData();
+        })
+        .withFailureHandler(function(error) {
+          btn.disabled = false;
+          btn.innerHTML = origText;
+          showToast("실패", error.message, false);
+        })
+        .sendCompliment(currentUser.employeeId, receiver, content);
+    }
+    
+    // 명예의 전당 TOP 10 렌더링 (받은 칭찬)
+    function renderTopTen(receivedRankings) {
+      const container = document.getElementById('top-ten-grid');
+      container.innerHTML = '';
+      
+      if (receivedRankings.length === 0) {
+        container.innerHTML = `<div class="col-span-2 text-center py-6 text-xs text-slate-400 font-semibold">이번 달 칭찬 수신 내역이 존재하지 않습니다.</div>`;
+        return;
+      }
+      
+      receivedRankings.forEach((rank, idx) => {
+        const card = document.createElement('div');
+        card.className = "bg-white border border-emerald-50 rounded-2xl p-5 shadow-card border-l-4 border-l-[#00B76F]/40 flex flex-col space-y-3 cursor-pointer hover:shadow-md transition-shadow relative pb-12";
+        card.onclick = function() {
+          showReceivedDetailsModal(rank.nameWithDept);
+        };
+        
+        let rankBadge = '';
+        if (idx === 0) {
+          rankBadge = `<div class="w-7 h-7 rounded-full bg-gradient-to-br from-yellow-300 via-amber-400 to-yellow-500 text-white flex items-center justify-center font-black text-xs shadow-sm border border-amber-300">1</div>`;
+        } else if (idx === 1) {
+          rankBadge = `<div class="w-7 h-7 rounded-full bg-gradient-to-br from-slate-200 via-slate-300 to-slate-400 text-white flex items-center justify-center font-black text-xs shadow-sm border border-slate-200">2</div>`;
+        } else if (idx === 2) {
+          rankBadge = `<div class="w-7 h-7 rounded-full bg-gradient-to-br from-amber-600 via-amber-700 to-amber-800 text-white flex items-center justify-center font-black text-xs shadow-sm border border-amber-600">3</div>`;
+        } else {
+          rankBadge = `<div class="w-7 h-7 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 border border-slate-300 text-slate-500 flex items-center justify-center font-black text-xs shadow-sm">${idx + 1}</div>`;
+        }
+        
+        const namePart = rank.nameWithDept.split('(')[0];
+        const deptPart = rank.nameWithDept.split('(')[1].slice(0, -1);
+        
+        // 해당 카드의 칭찬 글 고유 ID 바인딩
+        const targetPost = cachedData.feed.find(p => p.receiverName === namePart && p.receiverDept === deptPart);
+        const complimentId = targetPost ? targetPost.id : 'MOCK_COMP_ID';
+        
+        card.innerHTML = `
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+              ${rankBadge}
+              <span class="font-bold text-slate-800 text-sm">${namePart}</span>
+              <span class="text-[11px] text-slate-400">/ ${deptPart}</span>
+            </div>
+            <span class="text-[11px] font-bold text-slate-500 bg-slate-50 px-2 py-0.5 rounded-full hover:bg-slate-100 transition-colors">받은 칭찬 : ${rank.count}건</span>
+          </div>
+          <p class="text-[10px] text-slate-400 font-semibold">가장 최근에 받은 칭찬이에요</p>
+          <div class="bg-slate-50/70 p-3 rounded-xl text-xs text-slate-600 font-medium border border-slate-50">
+            ${rank.latestCompliment}
+          </div>
+          <div class="absolute bottom-3 right-4">
+            ${getPraiseButtonHtml(complimentId)}
+          </div>
+        `;
+        container.appendChild(card);
+      });
+      lucide.createIcons();
+    }
+ 
+    // 역대 누적 포인트 TOP 3 렌더링
+    function renderCumulativeTopThree(topThreeData) {
+      const container = document.getElementById('cumulative-top-three-grid');
+      container.innerHTML = '';
+      
+      // 누적 포인트가 0보다 큰 사람들만 필터링
+      const activeData = (topThreeData || []).filter(rank => (rank.points || 0) > 0);
+      
+      if (activeData.length === 0) {
+        container.className = "flex justify-center items-center py-12";
+        container.innerHTML = `<p class="text-xs text-slate-400 font-semibold text-center">아직 칭찬 수신 내역이 존재하지 않습니다.</p>`;
+        return;
+      }
+      
+      container.className = "grid grid-cols-1 md:grid-cols-3 gap-4";
+      activeData.forEach((rank, idx) => {
+        const card = document.createElement('div');
+        card.className = "bg-white border border-emerald-50 rounded-2xl p-5 shadow-card border-l-4 border-l-[#00B76F]/40 flex flex-col space-y-3 cursor-pointer hover:shadow-md transition-shadow relative pb-12";
+        card.onclick = function() {
+          showReceivedDetailsModal(rank.nameWithDept);
+        };
+        
+        let rankBadge = '';
+        if (idx === 0) {
+          rankBadge = `<div class="w-7 h-7 rounded-full bg-gradient-to-br from-yellow-300 via-amber-400 to-yellow-500 text-white flex items-center justify-center font-black text-xs shadow-sm border border-amber-300">1</div>`;
+        } else if (idx === 1) {
+          rankBadge = `<div class="w-7 h-7 rounded-full bg-gradient-to-br from-slate-200 via-slate-300 to-slate-400 text-white flex items-center justify-center font-black text-xs shadow-sm border border-slate-200">2</div>`;
+        } else if (idx === 2) {
+          rankBadge = `<div class="w-7 h-7 rounded-full bg-gradient-to-br from-amber-600 via-amber-700 to-amber-800 text-white flex items-center justify-center font-black text-xs shadow-sm border border-amber-600">3</div>`;
+        }
+        
+        const namePart = rank.nameWithDept.split('(')[0];
+        const deptPart = rank.nameWithDept.split('(')[1].slice(0, -1);
+        
+        const targetPost = cachedData.feed.find(p => p.receiverName === namePart && p.receiverDept === deptPart);
+        const complimentId = targetPost ? targetPost.id : 'MOCK_COMP_ID';
+        
+        card.innerHTML = `
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+              ${rankBadge}
+              <span class="font-bold text-slate-800 text-sm">${namePart}</span>
+              <span class="text-[11px] text-slate-400">/ ${deptPart}</span>
+            </div>
+            <span class="text-xs font-black text-[#00B76F]">${rank.points || 0}P</span>
+          </div>
+          <p class="text-[10px] text-slate-400 font-semibold">가장 최근에 받은 칭찬이에요</p>
+          <div class="bg-slate-50/70 p-3 rounded-xl text-xs text-slate-600 font-medium border border-slate-50">
+            ${rank.latestCompliment}
+          </div>
+          <div class="absolute bottom-3 right-4">
+            ${getPraiseButtonHtml(complimentId)}
+          </div>
+        `;
+        container.appendChild(card);
+      });
+      lucide.createIcons();
+    }
+    
+    // 명예의 전당 TOP 10 렌더링 (보낸 칭찬)
+    function renderSentRankings(sentRankings) {
+      const container = document.getElementById('rank-sent-container');
+      container.innerHTML = '';
+      
+      if (sentRankings.length === 0) {
+        container.innerHTML = `<p class="text-xs text-center text-slate-400 py-6">보낸 칭찬 내역이 없습니다.</p>`;
+        return;
+      }
+      
+      sentRankings.forEach((rank, idx) => {
+        const div = document.createElement('div');
+        div.className = "flex items-center justify-between p-3.5 hover:bg-slate-50 rounded-2xl transition-all border border-slate-100 bg-white shadow-card";
+        
+        let medal = `<span class="w-8 text-center text-sm font-bold text-slate-400">${idx + 1}.</span>`;
+        if (idx === 0) medal = `<span class="w-8 text-center text-sm font-black text-[#FFD700]">1.</span>`;
+        else if (idx === 1) medal = `<span class="w-8 text-center text-sm font-black text-[#C0C0C0]">2.</span>`;
+        else if (idx === 2) medal = `<span class="w-8 text-center text-sm font-black text-[#CD7F32]">3.</span>`;
+        
+        div.innerHTML = `
+          <div class="flex items-center space-x-3">
+            ${medal}
+            <span class="text-sm font-bold text-slate-800">${rank.name}</span>
+            <span class="text-[11px] text-slate-400">/ ${rank.department}</span>
+          </div>
+          <div class="flex items-center space-x-1">
+            <span class="text-sm font-black text-[#00B76F]">${rank.count}</span>
+            <span class="text-[10px] text-slate-400 font-bold">회 발송</span>
+          </div>
+        `;
+        container.appendChild(div);
+      });
+    }
+    
+    // 최근 칭찬 피드 렌더링
+    function renderFeed(posts) {
+      const container = document.getElementById('feed-list');
+      container.innerHTML = '';
+      
+      if (posts.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-12">
+            <p class="text-slate-400 text-xs font-medium">등록된 피드가 없습니다.</p>
+          </div>`;
+        return;
+      }
+      
+      posts.forEach(post => {
+        const card = document.createElement('div');
+        card.className = "bg-white p-4 rounded-2xl border border-slate-100 shadow-card space-y-2.5 relative pb-12";
+        card.innerHTML = `
+          <div class="flex items-center justify-between text-xs font-semibold">
+            <div class="flex items-center space-x-1 bg-brand-50 text-brand-600 px-2 py-0.5 rounded-md text-[10px]">
+              <span>TO.</span>
+              <span>${post.receiverName} (${post.receiverDept})</span>
+            </div>
+            <div class="flex items-center space-x-1 bg-slate-50 text-slate-600 px-2 py-0.5 rounded-md text-[10px]">
+              <span>FROM.</span>
+              <span>${post.senderNickname}</span>
+            </div>
+          </div>
+          <p class="text-xs text-slate-700 bg-slate-50/50 p-2.5 rounded-xl font-medium">${post.content}</p>
+          <p class="text-[9px] text-slate-400 text-right font-medium">${post.date}</p>
+          <div class="absolute bottom-3 right-4">
+            ${getPraiseButtonHtml(post.id)}
+          </div>
+        `;
+        container.appendChild(card);
+      });
+      lucide.createIcons();
+    }
+    
+    // 3) 내 페이지 데이터 렌더
+    function renderMyPage() {
+      if (!currentUser || !cachedData) return;
+      
+      const stats = cachedData.myStats;
+      
+      document.getElementById('my-name').innerText = currentUser.name;
+      document.getElementById('my-emp-id').innerText = currentUser.employeeId;
+      document.getElementById('my-nickname').innerText = currentUser.nickname || 'Forty';
+      document.getElementById('my-points').innerText = `${currentUser.points}P`;
+      
+      document.getElementById('my-received-count-month').innerText = `${stats.receivedList.length}건`;
+      
+      const nicknameEl = document.getElementById('my-best-sender-nickname');
+      const countEl = document.getElementById('my-best-sender-count');
+      
+      if (stats.topSenderToMe && stats.topSenderToMe !== '없음') {
+        const match = stats.topSenderToMe.match(/^([^\(]+)\((.+)\)$/);
+        if (match) {
+          const nick = match[1].trim();
+          const countStr = match[2].trim().replace('회', ''); // '회' 글자 정제
+          nicknameEl.innerText = nick;
+          countEl.innerText = `총 ${countStr}번 칭찬해주셨어요 🙏`;
+          countEl.classList.remove('hidden');
+        } else {
+          nicknameEl.innerText = stats.topSenderToMe;
+          countEl.classList.add('hidden');
+        }
+      } else {
+        nicknameEl.innerText = "아직 칭찬이 없어요";
+        countEl.classList.add('hidden');
+      }
+      
+      filterMyList(currentPeriodFilter);
+    }
+    
+    // 내 칭찬 내역 탭 전환
+    function toggleMyComplimentTab(tabId) {
+      currentMyTab = tabId;
+      const tabReceived = document.getElementById('tab-my-received');
+      const tabSent = document.getElementById('tab-my-sent');
+      const tabExchange = document.getElementById('tab-my-exchange');
+      
+      // Reset classes
+      [tabReceived, tabSent, tabExchange].forEach(tab => {
+        if (tab) tab.className = "flex-1 text-center py-2 text-xs font-semibold rounded-lg text-slate-500 hover:text-slate-700 transition-all";
+      });
+      
+      const activeTab = document.getElementById(`tab-my-${tabId}`);
+      if (activeTab) {
+        activeTab.className = "flex-1 text-center py-2 text-xs font-bold rounded-lg bg-white text-slate-800 shadow-sm transition-all";
+      }
+      
+      // Hide period filters for exchange history because date filtering is optimized for compliments
+      const filterSection = document.querySelector('.bg-white.border.border-slate-100.rounded-2xl.p-6.shadow-premium.space-y-6 > div.space-y-4');
+      if (filterSection) {
+        if (tabId === 'exchange') {
+          filterSection.classList.add('hidden');
+        } else {
+          filterSection.classList.remove('hidden');
+        }
+      }
+      
+      filterMyList(currentPeriodFilter);
+    }
+    
+    // 내 칭찬 내역 필터 필터링
+    function filterMyList(filterType) {
+      currentPeriodFilter = filterType;
+      
+      const btnAll = document.getElementById('btn-filter-all');
+      const btnMonth = document.getElementById('btn-filter-month');
+      const btnDate = document.getElementById('btn-filter-date');
+      const periodLabel = document.getElementById('my-query-period');
+      const rangePicker = document.getElementById('date-range-picker-container');
+      
+      // 필터 스타일 리셋
+      if (btnAll && btnMonth && btnDate) {
+        [btnAll, btnMonth, btnDate].forEach(b => {
+          b.className = "px-3.5 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-600 rounded-lg transition-colors";
+        });
+      }
+      
+      let targetList = [];
+      if (cachedData && cachedData.myStats) {
+        if (currentMyTab === 'received') {
+          targetList = cachedData.myStats.receivedList || [];
+        } else if (currentMyTab === 'sent') {
+          targetList = cachedData.myStats.sentList || [];
+        } else if (currentMyTab === 'exchange') {
+          targetList = cachedData.myStats.exchangeList || [];
+        }
+      }
+      
+      if (currentMyTab !== 'exchange') {
+        if (filterType === 'all') {
+          if (btnAll) btnAll.className = "px-3.5 py-1.5 bg-[#00B76F] text-white text-xs font-bold rounded-lg transition-colors";
+          if (periodLabel) periodLabel.innerText = "조회 기간: 전체 기간";
+          if (rangePicker) rangePicker.classList.add('hidden');
+        } else if (filterType === 'month') {
+          if (btnMonth) btnMonth.className = "px-3.5 py-1.5 bg-[#00B76F] text-white text-xs font-bold rounded-lg transition-colors";
+          if (periodLabel) periodLabel.innerText = "조회 기간: 이번 달";
+          if (rangePicker) rangePicker.classList.add('hidden');
+          
+          // 이번 달 기준 필터링
+          const now = new Date();
+          const y = now.getFullYear();
+          const m = String(now.getMonth() + 1).padStart(2, '0');
+          const monthPrefix = `${y}-${m}`;
+          targetList = targetList.filter(p => p.date && p.date.startsWith(monthPrefix));
+        } else if (filterType === 'date') {
+          if (btnDate) btnDate.className = "px-3.5 py-1.5 bg-[#00B76F] text-white text-xs font-bold rounded-lg transition-colors";
+          if (rangePicker) rangePicker.classList.remove('hidden');
+          
+          const startDateInput = document.getElementById('my-filter-start-date');
+          const endDateInput = document.getElementById('my-filter-end-date');
+          
+          if (startDateInput && endDateInput) {
+            if (!startDateInput.value || !endDateInput.value) {
+              const today = new Date();
+              const oneMonthAgo = new Date();
+              oneMonthAgo.setMonth(today.getMonth() - 1);
+              
+              startDateInput.value = oneMonthAgo.toISOString().split('T')[0];
+              endDateInput.value = today.toISOString().split('T')[0];
+            }
+            
+            const startVal = startDateInput.value;
+            const endVal = endDateInput.value;
+            
+            if (periodLabel) periodLabel.innerText = `조회 기간: ${startVal.replace(/-/g, '.')} ~ ${endVal.replace(/-/g, '.')}`;
+            
+            // 날짜 범위 필터링
+            targetList = targetList.filter(p => {
+              if (!p.date) return false;
+              const postDateStr = p.date.substring(0, 10);
+              return postDateStr >= startVal && postDateStr <= endVal;
+            });
+          }
+        }
+      }
+      
+      renderMyFilteredList(targetList);
+    }
+    
+    // 달력 날짜 변경 처리
+    function handleDateRangeChange() {
+      filterMyList('date');
+    }
+    
+    // 내 필터 리스트 렌더링
+    function renderMyFilteredList(list) {
+      const container = document.getElementById('my-list-container');
+      container.innerHTML = '';
+      
+      if (list.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-8">
+            <p class="text-slate-400 text-xs font-semibold">조회된 내역이 존재하지 않습니다.</p>
+          </div>`;
+        return;
+      }
+      
+      list.forEach(item => {
+        const div = document.createElement('div');
+        
+        if (currentMyTab === 'exchange') {
+          div.className = "bg-white p-4 rounded-xl border border-slate-100 shadow-card space-y-3 relative";
+          const isPending = item.status.includes('Pending') || item.status.includes('대기중');
+          const badgeColor = isPending ? "text-amber-600 bg-amber-50" : "text-slate-600 bg-slate-100";
+          
+          div.innerHTML = `
+            <div class="flex items-center justify-between text-xs font-semibold">
+              <span class="text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full">🛍️ 상품 교환</span>
+              <span class="text-slate-400 text-[10px]">${item.date}</span>
+            </div>
+            <div class="space-y-1 bg-slate-50/60 p-3 rounded-xl">
+              <div class="flex justify-between items-center text-xs font-bold text-slate-800">
+                <span>상품명</span>
+                <span>${item.itemName}</span>
+              </div>
+              <div class="flex justify-between items-center text-xs text-slate-500 font-semibold mt-1">
+                <span>차감 포인트</span>
+                <span class="text-red-500 font-bold">-${item.pointsRequired}P</span>
+              </div>
+              <div class="flex justify-between items-center text-xs text-slate-500 font-semibold">
+                <span>잔여 포인트</span>
+                <span>${item.remainingPoints}P</span>
+              </div>
+            </div>
+            <div class="flex justify-between items-center pt-1 text-xs">
+              <span class="text-slate-400 text-[10px] font-medium">ID: ${item.exchangeId}</span>
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold ${badgeColor}">${item.status}</span>
+            </div>
+          `;
+        } else {
+          div.className = "bg-white p-4 rounded-xl border border-slate-100 shadow-card space-y-2 relative pb-12";
+          const badgeText = currentMyTab === 'received' 
+            ? `FROM. ${item.senderNickname}`
+            : `TO. ${item.receiverName} (${item.receiverDept})`;
+            
+          div.innerHTML = `
+            <div class="flex items-center justify-between text-xs font-semibold">
+              <span class="text-[#00B76F] bg-[#00B76F]/5 px-2.5 py-1 rounded-full">${badgeText}</span>
+              <span class="text-slate-400 text-[10px]">${item.date}</span>
+            </div>
+            <p class="text-xs text-slate-700 bg-slate-50/60 p-3 rounded-xl font-medium leading-relaxed">${item.content}</p>
+            <div class="absolute bottom-3 right-4">
+              ${getPraiseButtonHtml(item.id)}
+            </div>
+          `;
+        }
+        container.appendChild(div);
+      });
+      lucide.createIcons();
+    }
+    
+    // 받은 칭찬 리스트 팝업 모달 제어
+    function showReceivedDetailsModal(nameWithDept) {
+      if (!cachedData || !cachedData.feed) return;
+      
+      const match = nameWithDept.match(/^([^\(]+)\((.+)\)$/);
+      if (!match) return;
+      const userName = match[1].trim();
+      const userDept = match[2].trim();
+      
+      document.getElementById('detail-modal-user-name').innerText = `${userName}(${userDept})`;
+      
+      // 이번 달 수신 데이터 필터링
+      const filtered = cachedData.feed.filter(post => 
+        post.receiverName === userName && post.receiverDept === userDept
+      );
+      
+      const container = document.getElementById('detail-modal-list-container');
+      container.innerHTML = '';
+      
+      if (filtered.length === 0) {
+        container.innerHTML = `<p class="text-xs text-center text-slate-400 py-6 font-medium">이번 달 수신된 칭찬 내역이 없습니다.</p>`;
+      } else {
+        filtered.forEach(post => {
+          const card = document.createElement('div');
+          card.className = "bg-slate-50 p-4 rounded-2xl border border-slate-100 shadow-sm space-y-2.5 relative pb-12";
+          card.innerHTML = `
+            <div class="flex items-center justify-between text-xs font-semibold">
+              <span class="text-brand-500 bg-brand-50 px-2 py-0.5 rounded-md text-[10px]">TO. ${post.receiverName} (${post.receiverDept})</span>
+              <span class="text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md text-[10px]">FROM. ${post.senderNickname}</span>
+            </div>
+            <p class="text-xs text-slate-700 bg-white p-3 rounded-xl font-medium leading-relaxed border border-slate-100/50">${post.content}</p>
+            <p class="text-[9px] text-slate-400 text-right font-medium">${post.date}</p>
+            <div class="absolute bottom-3 right-4">
+              ${getPraiseButtonHtml(post.id)}
+            </div>
+          `;
+          container.appendChild(card);
+        });
+      }
+      
+      document.getElementById('modal-received-details').classList.remove('hidden');
+      lucide.createIcons();
+    }
+    
+    function closeReceivedDetailsModal() {
+      document.getElementById('modal-received-details').classList.add('hidden');
+    }
+    
+    // 상품 교환소 모달 열기
+    function openExchangeModal() {
+      if (!currentUser) return;
+      document.getElementById('exchange-user-points').innerText = `${currentUser.points}P`;
+      
+      // 잔여 포인트가 부족할 경우 버튼 비활성화
+      const btnParking = document.getElementById('btn-exchange-parking');
+      const btnFood = document.getElementById('btn-exchange-food');
+      if (btnParking) btnParking.disabled = currentUser.points < 300;
+      if (btnFood) btnFood.disabled = currentUser.points < 200;
+      
+      document.getElementById('modal-exchange').classList.remove('hidden');
+      lucide.createIcons();
+    }
+    
+    // 상품 교환소 모달 닫기
+    function closeExchangeModal() {
+      document.getElementById('modal-exchange').classList.add('hidden');
+    }
+    
+    // 상품 교환 신청 (낙관적 UI 적용)
+    function requestExchange(itemName, pointsRequired) {
+      if (!currentUser) return;
+      if (currentUser.points < pointsRequired) {
+        showToast("교환 실패", "잔여 포인트가 부족합니다.", false);
+        return;
+      }
+      
+      // 1. 낙관적 UI 적용 (화면 상 포인트 선차감)
+      const originalPoints = currentUser.points;
+      currentUser.points -= pointsRequired;
+      
+      // 2. 임시 뷰 반영
+      localStorage.setItem('currentUser', JSON.stringify(currentUser));
+      setupHeader();
+      
+      const myPtsEl = document.getElementById('my-points');
+      if (myPtsEl) myPtsEl.innerText = `${currentUser.points}P`;
+      document.getElementById('exchange-user-points').innerText = `${currentUser.points}P`;
+      
+      // 교환 버튼 상태 재조정
+      const btnParking = document.getElementById('btn-exchange-parking');
+      const btnFood = document.getElementById('btn-exchange-food');
+      if (btnParking) btnParking.disabled = currentUser.points < 300;
+      if (btnFood) btnFood.disabled = currentUser.points < 200;
+      
+      closeExchangeModal();
+      
+      // 3. 서버 전송
+      google.script.run
+        .withSuccessHandler(function(result) {
+          currentUser.points = result.remainingPoints;
+          localStorage.setItem('currentUser', JSON.stringify(currentUser));
+          setupHeader();
+          
+          if (myPtsEl) myPtsEl.innerText = `${currentUser.points}P`;
+          showToast("교환 신청 완료", "상품 교환신청이 완료되었습니다. 사용 당일, 담당자에게 연락주세요!", true);
+          refreshData();
+        })
+        .withFailureHandler(function(error) {
+          // 실패 시 포인트 롤백
+          currentUser.points = originalPoints;
+          localStorage.setItem('currentUser', JSON.stringify(currentUser));
+          setupHeader();
+          
+          if (myPtsEl) myPtsEl.innerText = `${currentUser.points}P`;
+          showToast("교환 실패", `상품 교환 중 문제가 발생해 포인트를 복원했습니다: ${error.message}`, false);
+          refreshData();
+        })
+        .exchangeItem(currentUser.employeeId, itemName, pointsRequired);
+    }
+    
+    // 관리자 대시보드 렌더링
+    function renderAdminDashboard() {
+      const tbody = document.getElementById('admin-exchange-tbody');
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="6" class="p-6 text-center text-slate-400 font-semibold">교환 내역을 불러오는 중...</td>
+        </tr>
+      `;
+      
+      google.script.run
+        .withSuccessHandler(function(history) {
+          tbody.innerHTML = '';
+          if (history.length === 0) {
+            tbody.innerHTML = `
+              <tr>
+                <td colspan="6" class="p-6 text-center text-slate-400 font-semibold">신청된 교환 내역이 없습니다.</td>
+              </tr>
+            `;
+            return;
+          }
+          
+          history.forEach(item => {
+            const tr = document.createElement('tr');
+            tr.className = "hover:bg-slate-50 transition-colors border-b border-slate-100";
+            
+            const isPending = item.status.includes('Pending') || item.status.includes('대기중');
+            const selectedPending = isPending ? 'selected' : '';
+            const selectedUsed = !isPending ? 'selected' : '';
+            
+            tr.innerHTML = `
+              <td class="p-3 font-mono text-slate-500">${item.date}</td>
+              <td class="p-3">
+                <span class="font-bold text-slate-800">${item.name}</span>
+                <span class="text-[10px] text-slate-400 block">${item.department} (${item.employeeId})</span>
+              </td>
+              <td class="p-3 font-bold text-slate-700">${item.itemName}</td>
+              <td class="p-3 font-semibold text-red-500">-${item.pointsRequired}P</td>
+              <td class="p-3 font-semibold text-slate-500">${item.remainingPoints}P</td>
+              <td class="p-3">
+                <select onchange="changeExchangeStatus(this, '${item.exchangeId}')" class="px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-bold bg-white focus:outline-none focus:ring-1 focus:ring-brand-500">
+                  <option value="대기중(Pending)" ${selectedPending}>대기중(Pending)</option>
+                  <option value="사용 완료(Used)" ${selectedUsed}>사용 완료(Used)</option>
+                </select>
+              </td>
+            `;
+            tbody.appendChild(tr);
+          });
+        })
+        .withFailureHandler(function(error) {
+          showToast("에러", `교환 내역 로드 실패: ${error.message}`, false);
+        })
+        .getExchangeHistory();
+    }
+    
+    // 교환 상태값 변경 및 연동
+    function changeExchangeStatus(selectEl, exchangeId) {
+      const newStatus = selectEl.value;
+      selectEl.disabled = true;
+      
+      google.script.run
+        .withSuccessHandler(function() {
+          selectEl.disabled = false;
+          showToast("성공", "교환 상태가 업데이트되었습니다.", true);
+        })
+        .withFailureHandler(function(error) {
+          selectEl.disabled = false;
+          showToast("실패", `상태 변경 실패: ${error.message}`, false);
+          renderAdminDashboard();
+        })
+        .updateExchangeStatus(exchangeId, newStatus);
+    }
+  </script>
+</body>
+</html>
