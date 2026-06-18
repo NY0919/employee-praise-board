@@ -69,10 +69,99 @@
 </head>
 <body class="main-bg text-slate-800 min-h-screen font-sans flex flex-col">
 
-  <!-- 로컬 테스트용 Mocking 스크립트 제거됨
-       Public GitHub 배포 시 테스트 사용자/테스트 게시글이 노출되지 않도록 삭제했습니다.
-       GitHub Pages에서는 google.script.run이 동작하지 않으므로, 별도 Apps Script API 호출 방식으로 수정이 필요합니다.
-  -->
+  <!-- GitHub Pages ↔ Apps Script API 연결 스크립트 -->
+  <script>
+    /*
+      1) 아래 URL을 본인의 Apps Script 웹앱 URL로 바꿔주세요.
+      2) Apps Script 배포 설정은 반드시 다음처럼 설정해야 합니다.
+         - 배포 유형: 웹 앱
+         - 실행 사용자: 나
+         - 액세스 권한: 모든 사용자
+    */
+    const APPS_SCRIPT_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyBPhbVZDCInyto-O_4ayUR0-mFfIvDFtwT6r6ickyuyl_U72QcPfz0mGWLaOF1vnx7DA/exec";
+
+    function callAppsScriptApi(action, args) {
+      return new Promise((resolve, reject) => {
+        if (!APPS_SCRIPT_WEB_APP_URL || APPS_SCRIPT_WEB_APP_URL.includes("PASTE_YOUR")) {
+          reject(new Error("Apps Script 웹앱 URL이 설정되지 않았습니다. index.html 상단의 APPS_SCRIPT_WEB_APP_URL을 수정해주세요."));
+          return;
+        }
+
+        const callbackName = "gasCallback_" + Date.now() + "_" + Math.floor(Math.random() * 100000);
+        const script = document.createElement("script");
+        const timeout = setTimeout(() => {
+          cleanup();
+          reject(new Error("Apps Script 응답 시간이 초과되었습니다. 웹앱 URL과 배포 권한을 확인해주세요."));
+        }, 20000);
+
+        function cleanup() {
+          clearTimeout(timeout);
+          if (script.parentNode) script.parentNode.removeChild(script);
+          try { delete window[callbackName]; } catch (e) { window[callbackName] = undefined; }
+        }
+
+        window[callbackName] = function(response) {
+          cleanup();
+          if (response && response.ok) {
+            resolve(response.result);
+          } else {
+            reject(new Error((response && response.message) || "처리 중 오류가 발생했습니다."));
+          }
+        };
+
+        const url = APPS_SCRIPT_WEB_APP_URL
+          + "?action=" + encodeURIComponent(action)
+          + "&args=" + encodeURIComponent(JSON.stringify(args || []))
+          + "&callback=" + encodeURIComponent(callbackName)
+          + "&t=" + Date.now();
+
+        script.onerror = function() {
+          cleanup();
+          reject(new Error("Apps Script 호출에 실패했습니다. 웹앱 URL 또는 배포 권한을 확인해주세요."));
+        };
+        script.src = url;
+        document.body.appendChild(script);
+      });
+    }
+
+    // 기존 Apps Script HTML용 코드(google.script.run)를 GitHub Pages에서도 동작하도록 흉내냅니다.
+    if (typeof google === "undefined") {
+      window.google = {
+        script: {
+          run: {
+            _success: null,
+            _failure: null,
+            withSuccessHandler: function(callback) {
+              this._success = callback;
+              return this;
+            },
+            withFailureHandler: function(callback) {
+              this._failure = callback;
+              return this;
+            },
+            _invoke: function(action, args) {
+              const success = this._success;
+              const failure = this._failure;
+              this._success = null;
+              this._failure = null;
+              callAppsScriptApi(action, args)
+                .then(result => { if (success) success(result); })
+                .catch(error => { if (failure) failure(error); else console.error(error); });
+            },
+            login: function(employeeId, name, department) { this._invoke("login", [employeeId, name, department]); },
+            registerNickname: function(employeeId, nickname) { this._invoke("registerNickname", [employeeId, nickname]); },
+            getDashboardData: function(currentEmployeeId) { this._invoke("getDashboardData", [currentEmployeeId]); },
+            sendCompliment: function(senderEmployeeId, receiverDisplayName, content) { this._invoke("sendCompliment", [senderEmployeeId, receiverDisplayName, content]); },
+            syncPraiseBatch: function(employeeId, queue) { this._invoke("syncPraiseBatch", [employeeId, queue]); },
+            getPraisers: function(complimentId) { this._invoke("getPraisers", [complimentId]); },
+            exchangeItem: function(employeeId, itemName, pointsRequired) { this._invoke("exchangeItem", [employeeId, itemName, pointsRequired]); },
+            getExchangeHistory: function() { this._invoke("getExchangeHistory", []); },
+            updateExchangeStatus: function(exchangeId, newStatus) { this._invoke("updateExchangeStatus", [exchangeId, newStatus]); }
+          }
+        }
+      };
+    }
+  </script>
 
   <!-- 글로벌 토스트 -->
   <div id="toast" class="fixed top-5 right-5 z-50 transform translate-x-72 transition-transform duration-300 flex items-center p-4 space-x-3 max-w-sm rounded-2xl bg-white shadow-xl border border-emerald-50 hidden">
